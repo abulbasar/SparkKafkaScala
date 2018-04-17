@@ -36,16 +36,19 @@ object StructuredFileStream {
         new StructField("value", StringType, false))
     )
     
+    // Source of stream
     val source = spark.readStream.schema(schema).text("/tmp/input/*.dat")
     
     print("Is streaming: ", source.isStreaming)
     source.printSchema()
     
+    // Apply transformation rules on stream
     val enriched = source
     .withColumn("value", expr("cast(value as double)"))
-    .withColumn("outlier",  expr("value > 0.99 or value < 0.01").alias("outpier"))
+    .withColumn("outlier",  expr("value > 0.99 or value < 0.01").alias("outlier"))
     
-    
+    // Apply two sinks one to save the output to file system and other to console. 
+    // If you run your application on Hadoop, spark will store data on HDFS
     enriched.writeStream.format("csv").outputMode(OutputMode.Append()).start("/tmp/output")
     enriched.writeStream.format("console").option("truncate", false).option("numRows", 10).start()
     
