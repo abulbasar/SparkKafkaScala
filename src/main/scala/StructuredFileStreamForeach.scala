@@ -22,7 +22,7 @@ $ python random_file_generator.py
 
 
 
-object StructuredFileStream {
+object StructuredFileFoeachStream {
   
   def main(args:Array[String]){
     val conf = new SparkConf()
@@ -31,6 +31,8 @@ object StructuredFileStream {
     .setIfMissing("spark.sql.streaming.checkpointLocation", "/tmp/checkpoint")
     
     val spark = SparkSession.builder().config(conf).getOrCreate()
+    
+    import spark.implicits._
     
     val schema = new StructType(Array(
         new StructField("value", StringType, false))
@@ -43,10 +45,16 @@ object StructuredFileStream {
     
     val enriched = source
     .withColumn("value", expr("cast(value as double)"))
-    .withColumn("outlier",  expr("value > 0.99 or value < 0.01").alias("outlier"))
+    .withColumn("outlier",  expr("value > 0.99 or value < 0.01"))
+    .select("value", "outlier")
+    .as[HBaseRecordType]
     
+    enriched.printSchema()
     
     enriched.writeStream.format("csv").outputMode(OutputMode.Append()).start("/tmp/output")
+    
+    enriched.writeStream.foreach(new HBaseSink).start()
+    
     enriched.writeStream.format("console").option("truncate", false).option("numRows", 10).start()
     
     
